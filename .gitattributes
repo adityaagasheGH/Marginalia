@@ -1,0 +1,10 @@
+# Normalize line endings: LF in the repo and in the working tree.
+# Prevents Windows CRLF from producing whole-file diffs.
+* text=auto eol=lf
+
+# Binary files - never touch these.
+*.pdf binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.woff2 binary
