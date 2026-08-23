@@ -1,0 +1,197 @@
+// Marginalia — database schema
+// See docs/DATA_MODEL.md for the reasoning behind each decision.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  // Pooled connection, used at runtime by the app.
+  url        = env("DATABASE_URL")
+  // Unpooled connection, used only by `prisma migrate`.
+  // Neon's pooler (pgbouncer) cannot run DDL statements like CREATE TABLE.
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector, pg_trgm]
+}
+
+// ─────────────────────────────── Users ───────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  documents    Document[]
+  comments     Comment[]
+  chatSessions ChatSession[]
+  resetTokens  PasswordResetToken[]
+
+  @@map("users")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique // sha256 of the emailed token — never store raw
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ───────────────────────────── Documents ─────────────────────────────
+
+enum DocumentStatus {
+  PROCESSING // uploaded, pipeline running
+  READY // text extracted, chunks embedded, summary generated
+  NO_TEXT // valid PDF but no extractable text (scan/image-only)
+  FAILED // extraction or LLM error — errorMessage explains
+}
+
+model Document {
+  id            String         @id @default(cuid())
+  ownerId       String
+  filename      String
+  blobUrl       String // private; never sent to the client
+  blobPathname  String
+  sizeBytes     Int
+  pageCount     Int?
+  status        DocumentStatus @default(PROCESSING)
+  summary       String?        @db.Text // 3–5 sentences
+  extractedText String?        @db.Text
+  errorMessage  String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  owner        User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  chunks       DocumentChunk[]
+  shares       Share[]
+  comments     Comment[]
+  chatSessions ChatSession[]
+
+  @@index([ownerId, createdAt(sort: Desc)])
+  @@index([ownerId, filename])
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id         String @id @default(cuid())
+  documentId String
+  chunkIndex Int
+  content    String @db.Text
+  pageStart  Int
+  pageEnd    Int
+  tokenCount Int
+
+  // pgvector — Prisma has no native vector type, so it is Unsupported.
+  // Reads/writes go through $queryRaw. See docs/DATA_MODEL.md.
+  embedding Unsupported("vector(768)")?
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@index([documentId])
+  @@map("document_chunks")
+}
+
+// ────────────────────────────── Sharing ──────────────────────────────
+
+enum SharePermission {
+  VIEW // read PDF + summary + chat
+  COMMENT // the above, plus can post comments
+}
+
+model Share {
+  id           String          @id @default(cuid())
+  documentId   String
+  token        String          @unique // 32 random bytes, base64url
+  createdById  String
+  inviteeEmail String?
+  permission   SharePermission @default(COMMENT)
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  lastAccessAt DateTime?
+  createdAt    DateTime        @default(now())
+
+  document Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  comments Comment[]
+  sessions ChatSession[]
+
+  @@index([documentId])
+  @@map("shares")
+}
+
+// ───────────────────────────── Comments ──────────────────────────────
+
+model Comment {
+  id         String    @id @default(cuid())
+  documentId String
+  parentId   String? // one level of threading
+  userId     String? // set for the authenticated owner
+  shareId    String? // set for guests
+  guestName  String? // set for guests
+  body       String    @db.Text // markdown subset: bold, italic, lists
+  pageNumber Int? // optional anchor to a PDF page
+  createdAt  DateTime  @default(now())
+  deletedAt  DateTime?
+
+  document Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  parent   Comment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("CommentThread")
+  user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  share    Share?    @relation(fields: [shareId], references: [id], onDelete: SetNull)
+
+  @@index([documentId, createdAt])
+  @@index([parentId])
+  @@map("comments")
+}
+
+// ─────────────────────────────── Chat ────────────────────────────────
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+model ChatSession {
+  id         String   @id @default(cuid())
+  documentId String
+  userId     String? // owner's session
+  shareId    String? // guest's session
+  guestKey   String? // per-browser id from the signed guest cookie
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  document Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  share    Share?        @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@unique([documentId, userId])
+  @@unique([documentId, shareId, guestKey])
+  @@index([documentId])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      ChatRole
+  content   String   @db.Text
+  citations Json? // [{ chunkId, pageStart, pageEnd }]
+  createdAt DateTime @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
+}
