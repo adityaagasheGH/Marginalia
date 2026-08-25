@@ -13,6 +13,12 @@ export const authConfig = {
   // in auth.ts, not here. This empty array keeps the object a valid
   // NextAuthConfig; the spread in auth.ts fills it in.
   providers: [],
+  // In production mode, Auth.js rejects requests whose Host header it
+  // doesn't recognize ("UntrustedHost") unless told to trust it. Vercel and
+  // `next start` both put the app behind a host Auth.js can't otherwise
+  // verify against a fixed URL, so this is required in both environments,
+  // not just a Vercel-specific tweak.
+  trustHost: true,
   pages: {
     signIn: "/login",
   },

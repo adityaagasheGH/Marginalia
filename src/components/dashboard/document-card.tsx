@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FileText, Loader2, AlertTriangle, ScanLine } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
@@ -55,34 +56,39 @@ function StatusBadge({ status }: { status: DocumentSummary["status"] }) {
 
 export function DocumentCard({ doc }: { doc: DocumentSummary }) {
   return (
-    <Card className="flex h-full flex-col gap-3 p-5">
-      <div className="flex items-start gap-3">
-        <FileText className="mt-0.5 h-5 w-5 shrink-0 text-ink-muted" />
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate font-medium text-ink" title={doc.filename}>
-            {doc.filename}
-          </h3>
-          <p className="text-xs text-ink-muted">
-            {doc.pageCount ? `${doc.pageCount} pages · ` : ""}
-            {formatDate(doc.createdAt)}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex-1">
-        {doc.status === "READY" && doc.summary ? (
-          <p className="line-clamp-4 text-sm text-ink-muted">{doc.summary}</p>
-        ) : doc.status === "PROCESSING" ? (
-          <StatusBadge status="PROCESSING" />
-        ) : (
-          <div className="space-y-1">
-            <StatusBadge status={doc.status} />
-            {doc.errorMessage && (
-              <p className="text-xs text-ink-muted">{doc.errorMessage}</p>
-            )}
+    // The whole card opens the reader (docs/UI_SPEC.md dashboard flow). The
+    // reader page itself handles PROCESSING/FAILED/NO_TEXT states, so it's
+    // safe to link there regardless of status.
+    <Link href={`/documents/${doc.id}`} className="block h-full">
+      <Card className="flex h-full flex-col gap-3 p-5 transition-colors hover:border-ink-muted">
+        <div className="flex items-start gap-3">
+          <FileText className="mt-0.5 h-5 w-5 shrink-0 text-ink-muted" />
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate font-medium text-ink" title={doc.filename}>
+              {doc.filename}
+            </h3>
+            <p className="text-xs text-ink-muted">
+              {doc.pageCount ? `${doc.pageCount} pages · ` : ""}
+              {formatDate(doc.createdAt)}
+            </p>
           </div>
-        )}
-      </div>
-    </Card>
+        </div>
+
+        <div className="flex-1">
+          {doc.status === "READY" && doc.summary ? (
+            <p className="line-clamp-4 text-sm text-ink-muted">{doc.summary}</p>
+          ) : doc.status === "PROCESSING" ? (
+            <StatusBadge status="PROCESSING" />
+          ) : (
+            <div className="space-y-1">
+              <StatusBadge status={doc.status} />
+              {doc.errorMessage && (
+                <p className="text-xs text-ink-muted">{doc.errorMessage}</p>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+    </Link>
   );
 }
