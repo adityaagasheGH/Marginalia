@@ -82,7 +82,8 @@ check(pooled !== direct || !pooled, "the two URLs differ", "DATABASE_URL and DIR
 check(!pooled || /sslmode=require/.test(pooled), "sslmode=require is set", "DATABASE_URL is missing sslmode=require");
 
 console.log("  API tokens:");
-check(/^AIza/.test(env.GOOGLE_GENERATIVE_AI_API_KEY ?? ""), "Gemini key starts with AIza", "Gemini key should start with \"AIza\"");
+// Google issues two key formats: the legacy "AIza…" and the newer "AQ.…".
+check(/^(AIza|AQ\.)/.test(env.GOOGLE_GENERATIVE_AI_API_KEY ?? ""), "Gemini key has a recognised Google prefix", "Gemini key should start with \"AIza\" or \"AQ.\"");
 check(/^vercel_blob_rw_/.test(env.BLOB_READ_WRITE_TOKEN ?? ""), "Blob token starts with vercel_blob_rw_", "Blob token should start with \"vercel_blob_rw_\"");
 check((env.AUTH_SECRET ?? "").length >= 32, "AUTH_SECRET is long enough", "AUTH_SECRET must be at least 32 characters");
 
