@@ -1,13 +1,10 @@
 import { auth } from "@/auth";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { DocumentsView } from "@/components/dashboard/documents-view";
 
 /**
- * Placeholder dashboard. Middleware already guarantees a session before this
- * renders, but we read it here to greet the user by name. The real dashboard
- * (document grid, upload, search) arrives in Day 1 Evening.
- *
- * This is a Server Component: `auth()` runs on the server, so the session is
- * available without any client-side fetch.
+ * Dashboard: upload PDFs and see them processed. Middleware guarantees a
+ * session before this renders; we read it to greet the user.
  */
 export default async function DashboardPage() {
   const session = await auth();
@@ -17,18 +14,21 @@ export default async function DashboardPage() {
       <header className="flex items-center justify-between border-b border-rule bg-surface px-6 py-4">
         <span className="font-serif text-xl text-ink">Marginalia</span>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-ink-muted">{session?.user?.email}</span>
+          <span className="hidden text-sm text-ink-muted sm:inline">
+            {session?.user?.email}
+          </span>
           <LogoutButton />
         </div>
       </header>
 
-      <div className="mx-auto max-w-5xl px-6 py-16 text-center">
-        <h1 className="font-serif text-3xl text-ink">
-          Welcome, {session?.user?.name ?? "reader"}.
-        </h1>
-        <p className="mt-3 text-ink-muted">
-          Your documents will live here. Upload and reading come next.
-        </p>
+      <div className="mx-auto max-w-5xl px-6 py-10">
+        <div className="mb-6">
+          <h1 className="font-serif text-2xl text-ink">Your documents</h1>
+          <p className="text-sm text-ink-muted">
+            Upload a PDF to get an AI summary and chat.
+          </p>
+        </div>
+        <DocumentsView />
       </div>
     </main>
   );
