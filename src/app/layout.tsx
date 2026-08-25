@@ -47,9 +47,13 @@ export default function RootLayout({
     // `font-sans` at the html level, and a custom property defined only on
     // body would be undefined there — the font would silently fall back to
     // the browser's default serif.
+    // `dark` sets the app to the dark palette defined in globals.css (the
+    // .dark block). It is applied statically here rather than via a toggle
+    // because the app ships dark by default; a theme switcher can flip this
+    // class later without touching the palette.
     <html
       lang="en"
-      className={`${inter.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
+      className={`dark ${inter.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
     >
       <body className="antialiased">
         {children}

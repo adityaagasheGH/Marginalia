@@ -104,37 +104,53 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  color-scheme: dark; /* dark native controls, scrollbars, form widgets */
+
+  /* ── UI_SPEC tokens, dark variant ───────────────────────────────────
+     A warm near-black, not pure #000: this is a reading environment, so
+     the "paper" goes to dim library-lamp dark rather than an OLED void.
+     Same single indigo accent, brightened so it reads on a dark ground. */
+  --paper: #17161A; /* app background — warm near-black */
+  --surface: #201E22; /* cards, panels — slightly lifted */
+  --ink: #F4F1EB; /* primary text — warm off-white */
+  --ink-muted: #A5A099; /* secondary text — passes 4.5:1 on --paper */
+  --rule: #343139; /* hairline borders */
+  --accent-sub: #23264A; /* accent backgrounds — deep indigo tint */
+  --flag: #F0764F; /* errors — warm, legible on dark */
+  --ok: #4ADE80; /* ready status — brighter green for dark */
+
+  /* ── shadcn variable names mapped onto the palette above ──────────── */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: #4F5BE8; /* indigo button fill; white text clears AA on it */
+  --primary-foreground: #FFFFFF;
+  --secondary: #26242A;
+  --secondary-foreground: var(--ink);
+  --muted: #26242A;
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--accent-sub);
+  --accent-foreground: #AAB4FF; /* light indigo text on --accent-sub */
+  --destructive: var(--flag);
+  --border: var(--rule);
+  --input: var(--rule);
+  --ring: #6E7BFF; /* focus ring — brighter so it is clearly visible */
+  --chart-1: #6E7BFF;
+  --chart-2: #A5A099;
+  --chart-3: #4ADE80;
+  --chart-4: #F0764F;
+  --chart-5: #F4F1EB;
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: #4F5BE8;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: var(--accent-sub);
+  --sidebar-accent-foreground: #AAB4FF;
+  --sidebar-border: var(--rule);
+  --sidebar-ring: #6E7BFF;
 }
 
 @layer base {
