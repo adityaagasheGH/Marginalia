@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Inter, DM_Sans, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 /**
- * Fonts, per docs/UI_SPEC.md:
- *   Inter            — body / UI. "Boring on purpose; it disappears."
- *   Instrument Serif — display / headings. Signals "document" instantly.
- *   JetBrains Mono   — page refs, tokens, citation chips.
+ * Fonts:
+ *   Inter    — body / UI. "Boring on purpose; it disappears."
+ *   DM Sans  — display / headings (was Instrument Serif per docs/UI_SPEC.md,
+ *              swapped to DM Sans on request).
+ *   JetBrains Mono — page refs, tokens, citation chips.
  *
  * next/font self-hosts these at build time — no runtime request to Google,
  * which keeps them working under the strict CSP we add later.
@@ -18,9 +19,8 @@ const inter = Inter({
   display: "swap",
 });
 
-const instrumentSerif = Instrument_Serif({
+const dmSans = DM_Sans({
   variable: "--font-serif",
-  weight: "400",
   subsets: ["latin"],
   display: "swap",
 });
@@ -53,7 +53,7 @@ export default function RootLayout({
     // class later without touching the palette.
     <html
       lang="en"
-      className={`dark ${inter.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
+      className={`dark ${inter.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
     >
       <body className="antialiased">
         {children}

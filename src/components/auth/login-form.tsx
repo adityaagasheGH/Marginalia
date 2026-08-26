@@ -50,7 +50,16 @@ export function LoginForm() {
     });
 
     if (result?.error) {
-      setError("Invalid email or password.");
+      // Distinguish "wrong credentials" from "the server broke". Auth.js
+      // reports a rejected login as CredentialsSignin; anything else (a
+      // database outage, a misconfigured secret) is our fault, not the
+      // user's, and telling them their password is wrong sends them off to
+      // create a duplicate account chasing a problem they cannot fix.
+      setError(
+        result.error === "CredentialsSignin"
+          ? "Invalid email or password."
+          : "We couldn't reach the server. Please try again in a moment.",
+      );
       setPending(false);
       return;
     }

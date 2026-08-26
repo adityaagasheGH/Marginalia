@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -12,7 +12,9 @@
     "db:generate": "prisma generate",
     "db:verify": "node scripts/verify-db.mjs",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "dev:clean": "node scripts/clean.mjs && next dev --turbopack",
+    "clean": "node scripts/clean.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.51",

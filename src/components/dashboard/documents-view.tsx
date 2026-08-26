@@ -81,6 +81,11 @@ export function DocumentsView() {
     [],
   );
 
+  /** Drop a deleted document from the list without refetching. */
+  const removeDoc = useCallback((id: string) => {
+    setDocs((prev) => prev.filter((d) => d.id !== id));
+  }, []);
+
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -141,7 +146,7 @@ export function DocumentsView() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {docs.map((doc) => (
-            <DocumentCard key={doc.id} doc={doc} />
+            <DocumentCard key={doc.id} doc={doc} onDelete={removeDoc} />
           ))}
         </div>
       )}
