@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SummaryPanel } from "@/components/reader/summary-panel";
 import { ComingSoonPanel } from "@/components/reader/coming-soon-panel";
+import { ChatPanel } from "@/components/reader/chat-panel";
 
 /**
  * pdfjs-dist (which react-pdf wraps) expects browser-only globals like
@@ -122,8 +123,18 @@ export function ReaderClient() {
             <TabsContent value="summary" className="min-h-0 flex-1 overflow-auto">
               <SummaryPanel summary={doc.status === "NO_TEXT" ? doc.errorMessage : doc.summary} />
             </TabsContent>
-            <TabsContent value="chat" className="min-h-0 flex-1 overflow-auto">
-              <ComingSoonPanel label="Chat" />
+            <TabsContent value="chat" className="min-h-0 flex-1 overflow-hidden">
+              <ChatPanel
+                documentId={doc.id}
+                disabled={doc.status !== "READY"}
+                disabledReason={
+                  doc.status === "NO_TEXT"
+                    ? "This PDF has no extractable text, so there is nothing to search."
+                    : doc.status === "PROCESSING"
+                      ? "Still analyzing this document — chat opens when it is ready."
+                      : doc.errorMessage ?? undefined
+                }
+              />
             </TabsContent>
             <TabsContent value="comments" className="min-h-0 flex-1 overflow-auto">
               <ComingSoonPanel label="Comments" />

@@ -271,6 +271,8 @@ ALTER TABLE comments ADD CONSTRAINT comment_single_author CHECK (
 
 ## Vector operations
 
+> **Correction — column names.** The SQL in this section is written in snake_case (`document_id`, `page_start`), but the init migration created **quoted camelCase** columns (`"documentId"`, `"pageStart"`) because those Prisma fields have no `@map`. Unquoted identifiers fold to lowercase in Postgres, so `documentId` resolves to `documentid` and the query fails. The working queries are in `src/lib/ai/embed.ts` and `src/lib/ai/retrieve.ts` — copy from those, not from the snippets below.
+
 Prisma can't read or write `Unsupported` columns through the normal client. Two raw helpers cover everything.
 
 **Insert chunks with embeddings**

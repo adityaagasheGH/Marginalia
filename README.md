@@ -51,12 +51,19 @@ Single app, single deploy. **Zero cost.** Every LLM call happens in a server rou
 
 ### Models (completely free)
 
-| Job | Model | Quota |
+| Job | Model | Task type |
 |---|---|---|
-| All text generation (summaries, chat, condensation) | `gemini-2.5-flash` | 1,500 req/day, 10M tok/min |
-| Embeddings | `gemini-embedding-001` (768-d) | Same free quota |
+| All text generation (summaries, chat, condensation) | `gemini-flash-lite-latest` | — |
+| Embedding document chunks | `gemini-embedding-001` (768-d) | `RETRIEVAL_DOCUMENT` |
+| Embedding the user's question | `gemini-embedding-001` (768-d) | `RETRIEVAL_QUERY` |
 
-Single API key, one free-tier quota pool. No trial credits, no expiry, no monthly bills. Setup is one line: grab a key from [aistudio.google.com](https://aistudio.google.com).
+**Single API key, one free-tier quota pool.** Grab one at [aistudio.google.com](https://aistudio.google.com) — no credit card.
+
+Why one provider rather than a second API for chat: retrieval needs an *embedding* model, and document vectors and query vectors must come from the same model at the same dimensionality — embeddings are only comparable inside one model's vector space, and mixing them fails silently rather than loudly. `document_chunks.embedding` is declared `vector(768)` with an HNSW index built on that exact width, so the embedding provider is a one-time decision. Generation could run elsewhere, but a second key buys nothing here and adds a second rate limit and failure mode.
+
+The two embedding **task types** matter: a question and the passage answering it are worded very differently, and telling Gemini which side it is embedding closes that gap.
+
+> **Model note.** `docs/AI_DESIGN.md` specifies `gemini-2.5-flash`. Google retired it for new API keys, and `gemini-3.6-flash`'s free tier allows only 20 requests/day — one afternoon of uploads exhausts it. `gemini-flash-lite-latest` has a workable quota and comparable quality on these bounded tasks.
 
 ### Summaries
 
@@ -76,15 +83,38 @@ Retrieval-augmented, in five steps:
 4. **Assemble** — numbered context blocks tagged with page ranges.
 5. **Generate** — Flash at `temperature: 0.2`, streamed. The system prompt requires page citations, forbids falling back on general knowledge, and requires an explicit "the excerpts I have don't cover that" when the document is silent.
 
-Last 5 turns are sent verbatim; older turns are rolled into a running session summary.
+**Conversation memory.** The last **5 turns** (10 messages) are sent verbatim to the answering model, satisfying the 3–5 turn requirement. History is used twice, for different jobs: condensation reads it to resolve pronouns *before* retrieval, and the answering model receives it so replies read naturally in context. Both messages are persisted to `chat_messages`, so a page reload restores the conversation.
+
+Older turns are currently **dropped**, not summarized. A rolling session summary would keep token cost flat across very long conversations; it is not implemented yet.
+
+**Worked example of why condensation matters**, from the live pipeline:
+
+```
+Q: What are the requirements for the AI-powered chat feature?
+A: ...must maintain at least the last 3–5 turns of context (p. 2)...
+
+Q: And how long?
+   [condensed -> "duration and retention period of conversation history"]
+A: The chat must maintain at least the last 3–5 turns of context (p. 2).
+```
+
+"And how long?" is three words with no subject. Embedded raw it retrieves noise; rewritten against the history it retrieves the right passage.
+
+**Refusal behaviour**, same run — asked about a refund policy the document never mentions:
+
+> The excerpts I have don't cover that. They only cover the take-home engineering assignment requirements for building a PDF Intelligence & Collaboration System...
 
 ### Long documents
 
 Two mechanisms:
 
-**Chunking (for chat).** Page-aware, ~800 tokens with 150-token overlap, split preferentially at headings, then paragraphs, then sentences. Every chunk records its page range, which is what makes citations possible. Chat never needs the whole document in context — only the six most relevant chunks.
+**Chunking (for chat) — implemented.** Page-aware, ~800 tokens with ~150-token overlap, split preferentially at headings, then paragraphs, then sentences, with a hard character cut only for pathological input. Running headers and footers — any line appearing on >60% of pages — are stripped first, so they don't pollute every embedding with the same vocabulary. Chunks shorter than 100 tokens are merged into their predecessor, since tiny chunks embed to near-meaningless vectors that can outrank real content.
 
-**Map-reduce (for summaries).** Under ~150k tokens, one pass. Above that: group chunks into ~15k-token windows, summarize each into 2–3 dense sentences in parallel, then summarize the ordered section summaries. We chose this over stuffing everything into Sonnet's 1M context because cost scales far better and long-context recall degrades in the middle of very long inputs — map-reduce gives every section equal attention.
+Every chunk records `pageStart`/`pageEnd`. That is what makes `(p. 12)` citations possible — a page number cannot be recovered once text has been merged.
+
+**This is the answer to the context-window problem.** Chat never sends the document. It sends **six chunks, roughly 5k tokens**, no matter how long the PDF is. A 1,000-page file costs the same per turn as a 10-page one, so there is no length at which chat stops working. The limit shifts from "does the document fit" to "did retrieval find the right passages" — which is why retrieval is hybrid rather than vector-only.
+
+**Map-reduce (for summaries) — not yet implemented.** Summaries currently take a single pass and truncate the input at 500k characters (~125k tokens), noted in `lib/ai/summarize.ts`. Documents longer than that are summarized from their opening portion only. The map-reduce design (group chunks into ~15k-token windows, summarize each, then summarize the ordered section summaries) is specified in `docs/AI_DESIGN.md` but not built. Note this affects **summaries only** — chat already handles unlimited length via retrieval.
 
 ### Evaluation
 
@@ -96,7 +126,17 @@ Ten questions against a known test document — factual lookups, cross-section s
 
 ## Local setup
 
-**Requirements:** Node 20+, pnpm, a Postgres database with the `vector` extension (Neon's free tier works), and API keys for Anthropic and Google AI Studio.
+**Requirements:** Node 20+, npm, a Postgres database with the `vector` extension (Neon's free tier works), and a single Google AI Studio API key.
+
+### Re-indexing existing documents
+
+Chat needs chunks and embeddings, which are built during upload. Documents uploaded **before** chat existed have none, so chat would retrieve nothing for them. Backfill them once:
+
+```bash
+node scripts/backfill-chunks.mjs
+```
+
+By default it indexes only `READY` documents with zero chunks. Pass `--all` to re-index everything (after changing chunk settings, say), or specific document ids. It is safe to re-run: each document's chunks are deleted and reinserted in one transaction, so a document is never left half-indexed.
 
 ```bash
 git clone <repo-url> && cd marginalia
@@ -180,7 +220,10 @@ Full detail and the pre-submission checklist: [`docs/SECURITY.md`](docs/SECURITY
 - **Anyone with a share link has access.** That's the assignment's requirement (guests need no account). Mitigated with expiry, revocation, and access tracking.
 - **Retrieval returns 6 chunks.** Questions demanding a whole-document sweep ("list every deadline in this contract") may be incomplete. The model is instructed to flag when a question exceeds what it was given rather than answer partially and sound complete.
 - **Ingest runs in a 60-second serverless function.** Very large PDFs (300+ pages) can time out; they're marked `FAILED` with a retry option. A durable queue would be the production answer.
-- `<Anything else you cut — say it plainly, it reads better than a gap.>`
+- **Chat is owner-only.** Guests opening a share link can read the PDF but not chat: a per-browser guest session key is needed to keep one visitor's conversation separate from another's, and that arrives with sharing. The endpoint returns a clear 403 rather than silently mixing conversations together.
+- **Indexing is required for a document to be READY.** If embedding fails (a rate limit, say), the upload is marked `FAILED` even when its summary succeeded. The alternative — a `READY` document that silently answers nothing — is worse, because the user only discovers it by asking. Re-upload or run the backfill script to retry.
+- **Long-document summaries truncate.** Chat handles any length via retrieval, but summaries take a single pass capped at ~125k tokens. Map-reduce is designed in `docs/AI_DESIGN.md` and not yet built.
+- **Conversation history is dropped, not summarized,** beyond the last 5 turns. Fine at typical lengths; a very long session loses its early context.
 
 ---
 

@@ -26,7 +26,25 @@ const google = createGoogleGenerativeAI({
   apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
 });
 
-/** Text generation model: summaries and (later) chat + condensation. */
+/** Text generation model: summaries, chat, and query condensation. */
 export const flash = google("gemini-flash-lite-latest");
+
+/**
+ * Embedding model: turns text into a 768-number vector for similarity search.
+ *
+ * 768 is not a free parameter — `document_chunks.embedding` is declared
+ * `vector(768)` and the HNSW index is built on that exact width. Changing the
+ * dimension means a migration plus re-embedding every existing document, so
+ * the number is pinned here and in EMBEDDING_DIMS, and asserted at write time.
+ *
+ * gemini-embedding-001 natively emits 3072 dims and supports Matryoshka
+ * truncation — the vector is trained so that its first N values are
+ * independently meaningful. Asking for 768 therefore costs very little
+ * quality while keeping the index roughly a quarter of the size.
+ */
+export const embedding = google.textEmbeddingModel("gemini-embedding-001");
+
+/** Must match `vector(768)` in prisma/schema.prisma. */
+export const EMBEDDING_DIMS = 768;
 
 export { google };
