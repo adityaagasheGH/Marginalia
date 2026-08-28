@@ -58,6 +58,12 @@
 }
 
 :root {
+  /* Light native controls — scrollbars, form widgets, autofill. The .dark
+     block sets this to `dark`; declaring the light counterpart here is what
+     makes the theme toggle switch them back. Without it, light mode kept
+     dark scrollbars against a near-white page. */
+  color-scheme: light;
+
   /* ── UI_SPEC.md tokens (docs/UI_SPEC.md § Tokens) ───────────────── */
   --paper: #FBFAF8; /* app background */
   --surface: #FFFFFF; /* cards, panels */

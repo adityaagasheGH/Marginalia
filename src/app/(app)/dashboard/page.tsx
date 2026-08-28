@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { DocumentsView } from "@/components/dashboard/documents-view";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 /**
  * Dashboard: upload PDFs and see them processed. Middleware guarantees a
@@ -13,11 +14,15 @@ export default async function DashboardPage() {
     <main className="min-h-dvh bg-paper">
       <header className="flex items-center justify-between border-b border-rule bg-surface px-6 py-4">
         <span className="font-serif text-xl text-ink">Marginalia</span>
-        <div className="flex items-center gap-3">
-          <span className="hidden text-sm text-ink-muted sm:inline">
-            {session?.user?.email}
-          </span>
-          <LogoutButton />
+        {/* Right cluster: email + logout on top, theme toggle beneath. */}
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-3">
+            <span className="hidden text-sm text-ink-muted sm:inline">
+              {session?.user?.email}
+            </span>
+            <LogoutButton />
+          </div>
+          <ThemeToggle />
         </div>
       </header>
 
