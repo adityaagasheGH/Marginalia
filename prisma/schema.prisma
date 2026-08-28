@@ -138,7 +138,11 @@ model Comment {
   parentId   String? // one level of threading
   userId     String? // set for the authenticated owner
   shareId    String? // set for guests
-  guestName  String? // set for guests
+  guestName  String? // set for guests — the display name they chose
+  // Opaque per-browser id from the signed guest cookie. Not in the
+  // comment_single_author CHECK (that governs which identity branch is used);
+  // this is what lets a guest delete their own comment without an account.
+  guestKey   String?
   body       String    @db.Text // markdown subset: bold, italic, lists
   pageNumber Int? // optional anchor to a PDF page
   createdAt  DateTime  @default(now())

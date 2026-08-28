@@ -65,11 +65,17 @@
   color-scheme: light;
 
   /* ── UI_SPEC.md tokens (docs/UI_SPEC.md § Tokens) ───────────────── */
-  --paper: #FBFAF8; /* app background */
-  --surface: #FFFFFF; /* cards, panels */
+  /* Warm beige rather than white. This is a reading environment, and a pure
+     #FFFFFF surface under a full-page layout is genuinely glaring — the same
+     reason the dark palette uses a warm near-black instead of pure #000.
+     `surface` stays lighter than `paper` so cards still read as lifted off
+     the page. Contrast is preserved: --ink-muted on --paper is 4.76:1,
+     above the 4.5:1 body-text threshold. */
+  --paper: #F2EDE3; /* app background — warm beige */
+  --surface: #FBF7F0; /* cards, panels — lifted, warm off-white */
   --ink: #1A1917; /* primary text */
-  --ink-muted: #6B6862; /* secondary text */
-  --rule: #E5E2DC; /* hairline borders */
+  --ink-muted: #6B6862; /* secondary text — 4.76:1 on --paper */
+  --rule: #E0D8C7; /* hairline borders — warmed to match */
   --accent-sub: #EEF0FE; /* accent backgrounds */
   --flag: #C2410C; /* errors, destructive */
   --ok: #15803D; /* ready status */
@@ -84,9 +90,9 @@
   --popover-foreground: var(--ink);
   --primary: #3D4EDB; /* --accent: actions, links, active states */
   --primary-foreground: #FFFFFF;
-  --secondary: #F3F1EC;
+  --secondary: #ECE5D7; /* warmed to match the beige page */
   --secondary-foreground: var(--ink);
-  --muted: #F3F1EC;
+  --muted: #ECE5D7;
   --muted-foreground: var(--ink-muted);
   --accent: var(--accent-sub);
   --accent-foreground: #3D4EDB;

@@ -30,3 +30,36 @@ export const loginSchema = z.object({
 // fully typed downstream with no duplicate hand-written interface.
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+
+// ── Sharing ─────────────────────────────────────────────────────────────
+
+export const createShareSchema = z.object({
+  // VIEW is read-only; COMMENT also allows posting. Defaults to COMMENT
+  // because the point of sharing here is to collect feedback.
+  permission: z.enum(["VIEW", "COMMENT"]).default("COMMENT"),
+  // null / omitted means the link never expires.
+  expiresInDays: z.number().int().min(1).max(365).nullable().optional(),
+});
+
+export const identifySchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Enter a name so others know who commented.")
+    .max(40, "Name must be at most 40 characters."),
+});
+
+// ── Comments ────────────────────────────────────────────────────────────
+
+export const createCommentSchema = z.object({
+  body: z
+    .string()
+    .trim()
+    .min(1, "Comment can't be empty.")
+    .max(5000, "Comment must be at most 5000 characters."),
+  // Present when replying. The API rejects a parentId that is itself a
+  // reply — threading is one level deep, matching the schema's design.
+  parentId: z.string().cuid2().nullable().optional(),
+  // Optional "attached to page 12" anchor.
+  pageNumber: z.number().int().min(1).max(10_000).nullable().optional(),
+});

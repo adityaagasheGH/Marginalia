@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FileText, Loader2, AlertTriangle, ScanLine, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 /** The document shape the dashboard list endpoint returns. */
 export type DocumentSummary = {
@@ -64,35 +65,34 @@ export function DocumentCard({
   onDelete: (id: string) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  async function handleDelete(e: React.MouseEvent) {
-    // The card is wrapped in a Link; without these the click would navigate
-    // to the reader instead of deleting.
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!confirm(`Delete "${doc.filename}"? This cannot be undone.`)) return;
-
+  async function runDelete() {
     setDeleting(true);
     try {
       const res = await fetch(`/api/documents/${doc.id}`, { method: "DELETE" });
       if (!res.ok) {
         toast.error("Couldn't delete that document.");
-        setDeleting(false);
         return;
       }
-      toast.success("Document deleted.");
+      toast.success(`Deleted "${doc.filename}"`);
       onDelete(doc.id);
     } catch {
       toast.error("Couldn't delete that document.");
+    } finally {
       setDeleting(false);
     }
   }
 
   return (
-    // The whole card opens the reader (docs/UI_SPEC.md dashboard flow). The
-    // reader page itself handles PROCESSING/FAILED/NO_TEXT states, so it's
-    // safe to link there regardless of status.
+    // The dialog is a SIBLING of the Link, not a child. Radix portals it to
+    // document.body, but React synthetic events propagate through the
+    // component tree rather than the DOM tree — nested inside the Link, every
+    // click within the dialog would also navigate to the reader.
+    <>
+    {/* The whole card opens the reader (docs/UI_SPEC.md dashboard flow). The
+        reader page itself handles PROCESSING/FAILED/NO_TEXT states, so it's
+        safe to link there regardless of status. */}
     <Link href={`/documents/${doc.id}`} className="group block h-full">
       <Card className="flex h-full flex-col gap-3 p-5 transition-colors hover:border-ink-muted">
         <div className="flex items-start gap-3">
@@ -108,7 +108,13 @@ export function DocumentCard({
           </div>
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={(e) => {
+              // The card is wrapped in a Link; without these the click would
+              // navigate to the reader instead of opening the dialog.
+              e.preventDefault();
+              e.stopPropagation();
+              setConfirmOpen(true);
+            }}
             disabled={deleting}
             aria-label={`Delete ${doc.filename}`}
             title="Delete"
@@ -138,5 +144,31 @@ export function DocumentCard({
         </div>
       </Card>
     </Link>
+
+    <ConfirmDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      title="Delete this document?"
+      description={
+        <>
+          <span className="font-medium text-ink">{doc.filename}</span> will be
+          permanently removed. This can&apos;t be undone.
+        </>
+      }
+      // Deleting a document cascades in the database, so spelling out what
+      // else disappears is the difference between an informed confirmation
+      // and a reflexive one.
+      detail={
+        <ul className="space-y-1 text-xs text-ink-muted">
+          <li>· Its AI summary and search index</li>
+          <li>· The chat history for this document</li>
+          <li>· All comments and replies</li>
+          <li>· Any share links you created (they stop working)</li>
+        </ul>
+      }
+      confirmLabel="Delete document"
+      onConfirm={runDelete}
+    />
+    </>
   );
 }

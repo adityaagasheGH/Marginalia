@@ -1,6 +1,7 @@
 import type { SharePermission } from "@prisma/client";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { readGuestCookie } from "@/lib/guest";
 
 /**
  * THE access-control chokepoint.
@@ -19,7 +20,10 @@ export type Viewer =
   | {
       role: "guest";
       shareId: string;
+      // Null until the guest has introduced themselves. They may read
+      // immediately; a name is only required to post.
       guestKey: string | null;
+      guestName: string | null;
       permission: SharePermission;
     }
   | null;
@@ -65,11 +69,14 @@ export async function authorizeDocument(
     });
 
     if (share) {
+      // The signed httpOnly cookie scoped to this share. Absent until the
+      // guest gives a display name, which we only ask for on first comment.
+      const identity = await readGuestCookie(share.id);
       return {
         role: "guest",
         shareId: share.id,
-        // Day 3: read the signed httpOnly guest cookie scoped to this share.
-        guestKey: null,
+        guestKey: identity?.guestKey ?? null,
+        guestName: identity?.name ?? null,
         permission: share.permission,
       };
     }
