@@ -2,8 +2,6 @@
 
 Upload a PDF, get an AI summary, ask it questions, and share it for comments — the people you invite don't need an account.
 
-**Live:** `<deployed URL>` · **Demo:** `<video link>`
-
 ---
 
 ## Features
