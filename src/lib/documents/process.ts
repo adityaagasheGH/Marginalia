@@ -14,7 +14,7 @@ import { embedChunkTexts, replaceChunks } from "@/lib/ai/embed";
  *   any error -> FAILED with a real message
  *
  * Every exit path writes a terminal status, so the dashboard never shows an
- * eternal spinner (docs/AI_DESIGN.md § 2, ROADMAP risk register).
+ * eternal spinner.
  *
  * Indexing is treated as required, not best-effort: a document marked READY
  * that cannot answer a single question is a worse outcome than one that

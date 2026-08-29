@@ -13,24 +13,9 @@ import {
 } from "@/components/ui/dialog";
 
 /**
- * An in-app confirmation dialog for destructive actions.
- *
- * Replaces window.confirm(), which is a *browser* dialog rather than part of
- * the app: it is titled "localhost:3000 says", ignores every stylesheet, and
- * blocks the page thread until dismissed. This is a real React component, so
- * it follows the theme, animates, traps focus, and can show a loading state
- * while the action runs — none of which native confirm can do.
- *
- * Three deliberate choices for a destructive prompt:
- *
- *  - **No X in the corner.** The only ways out are Cancel or Confirm, so the
- *    choice is explicit. (Escape and clicking the overlay still cancel, which
- *    is what users expect and is the *safe* direction.)
- *  - **Cancel takes initial focus.** The dangerous button is never one stray
- *    Enter away.
- *  - **The dialog stays open while the action runs**, showing a spinner in the
- *    confirm button. Closing first would leave the user unsure whether it
- *    worked.
+ * In-app confirmation for destructive actions, replacing window.confirm.
+ * No close X and Cancel takes focus, so the destructive button is never one
+ * stray Enter away. Stays open while the action runs.
  */
 export function ConfirmDialog({
   open,
@@ -61,8 +46,6 @@ export function ConfirmDialog({
       await onConfirm();
       onOpenChange(false);
     } finally {
-      // Reset even on failure: the dialog stays open so the user can retry
-      // or back out, rather than being stuck on a dead spinner.
       setBusy(false);
     }
   };
@@ -71,8 +54,7 @@ export function ConfirmDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        // Ignore dismissal attempts mid-action — closing the dialog while the
-        // request is in flight would hide the outcome.
+        // Closing mid-request would hide the outcome.
         if (busy) return;
         onOpenChange(next);
       }}
@@ -80,8 +62,6 @@ export function ConfirmDialog({
       <DialogContent showCloseButton={false} className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-start gap-3">
-            {/* A tinted disc rather than a bare icon: it reads as a warning at
-                a glance without shouting, and matches the destructive token. */}
             <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive/10">
               <TriangleAlert className="h-4.5 w-4.5 text-destructive" />
             </span>
@@ -99,7 +79,6 @@ export function ConfirmDialog({
         <DialogFooter>
           <Button
             variant="outline"
-            // Initial focus lands here, so Enter cancels rather than destroys.
             autoFocus
             disabled={busy}
             onClick={() => onOpenChange(false)}

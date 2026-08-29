@@ -4,15 +4,11 @@ import { authorizeDocument, canComment } from "@/lib/authorize";
 import { createCommentSchema } from "@/lib/validation";
 
 /**
- * GET  /api/documents/[id]/comments — read the thread.
- * POST /api/documents/[id]/comments — post a comment or a reply.
- *
- * Both accept an owner session or a valid `?token=` share link, resolved by
- * the same authorizer every document route uses. Reading is open to any
- * viewer; posting additionally requires COMMENT permission.
+ * Read and post comments. Accepts an owner session or a `?token=` share link.
+ * Reading is open to any viewer; posting requires COMMENT permission.
  */
 
-/** Shape returned to the client. Author identity is flattened deliberately. */
+/** Author identity is flattened for the client. */
 type CommentDTO = {
   id: string;
   parentId: string | null;
@@ -72,9 +68,7 @@ export async function GET(
     mine:
       viewer.role === "owner"
         ? c.userId === viewer.userId
-        : // A guest owns a comment only if both the share and the browser key
-          // match. Comparing guestKey alone would let a guest on a different
-          // share delete comments that happen to share a key.
+        : // Both the share and the browser key must match.
           c.shareId === viewer.shareId &&
           c.guestKey !== null &&
           c.guestKey === viewer.guestKey,
@@ -85,8 +79,7 @@ export async function GET(
     viewer: {
       role: viewer.role,
       canComment: canComment(viewer),
-      // Null for a guest who has not named themselves yet — the UI uses this
-      // to decide whether to show the "what should we call you?" prompt.
+      // Null until a guest names themselves.
       name: viewer.role === "owner" ? null : viewer.guestName,
     },
   });
@@ -108,9 +101,7 @@ export async function POST(
       { status: 403 },
     );
   }
-  // A guest must introduce themselves before posting; the database CHECK
-  // constraint requires guestName alongside shareId, so this would fail at
-  // the write anyway. Catching it here produces a useful message instead.
+  // The comment_single_author CHECK requires guestName alongside shareId.
   if (viewer.role === "guest" && (!viewer.guestKey || !viewer.guestName)) {
     return NextResponse.json(
       { error: "Add a display name before commenting.", needsName: true },
@@ -135,15 +126,10 @@ export async function POST(
 
   const { body, parentId, pageNumber } = parsed.data;
 
-  // Threading is one level deep. If the target is itself a reply, attach to
-  // its parent instead of rejecting — the user's intent ("reply to this
-  // conversation") is clear, and a flat second level is what the schema and
-  // the UI both expect.
+  // One level deep: replying to a reply attaches to its parent.
   let resolvedParentId: string | null = null;
   if (parentId) {
     const parent = await db.comment.findFirst({
-      // Scoped to this document: a comment id from another document must not
-      // become a parent here.
       where: { id: parentId, documentId: id, deletedAt: null },
       select: { id: true, parentId: true },
     });
@@ -162,8 +148,7 @@ export async function POST(
       parentId: resolvedParentId,
       body,
       pageNumber: pageNumber ?? null,
-      // Exactly one identity branch is populated — the comment_single_author
-      // CHECK constraint in the migration enforces this at the database level.
+      // Exactly one identity branch, enforced by a CHECK constraint.
       ...(viewer.role === "owner"
         ? { userId: viewer.userId }
         : {
@@ -183,7 +168,6 @@ export async function POST(
     },
   });
 
-  // Record that this link is being used, for the owner's share list.
   if (viewer.role === "guest") {
     await db.share
       .update({ where: { id: viewer.shareId }, data: { lastAccessAt: new Date() } })

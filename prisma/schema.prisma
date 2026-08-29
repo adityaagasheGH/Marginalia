@@ -1,5 +1,4 @@
 // Marginalia — database schema
-// See docs/DATA_MODEL.md for the reasoning behind each decision.
 
 generator client {
   provider        = "prisma-client-js"
@@ -93,7 +92,7 @@ model DocumentChunk {
   tokenCount Int
 
   // pgvector — Prisma has no native vector type, so it is Unsupported.
-  // Reads/writes go through $queryRaw. See docs/DATA_MODEL.md.
+  // Reads/writes go through $queryRaw.
   embedding Unsupported("vector(768)")?
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)

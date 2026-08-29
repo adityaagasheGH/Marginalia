@@ -3,12 +3,8 @@ import { db } from "@/lib/db";
 import { authorizeDocument, isOwner } from "@/lib/authorize";
 
 /**
- * DELETE /api/documents/[id]/shares/[shareId] — revoke a link.
- *
- * Sets `revokedAt` rather than deleting the row. Two reasons: the authorizer
- * filters on `revokedAt: null`, so the link dies on the very next request;
- * and comments posted through that share keep their `shareId` foreign key,
- * so revoking access does not erase the discussion it produced.
+ * Revoke a link. Sets `revokedAt` rather than deleting, so comments posted
+ * through the share keep their author reference.
  */
 export async function DELETE(
   request: Request,
@@ -21,8 +17,6 @@ export async function DELETE(
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  // Scoped by documentId as well as id: an owner must not be able to revoke
-  // a share belonging to a document they do not own by guessing its id.
   const result = await db.share.updateMany({
     where: { id: shareId, documentId: id, revokedAt: null },
     data: { revokedAt: new Date() },

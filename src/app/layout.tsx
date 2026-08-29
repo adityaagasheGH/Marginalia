@@ -7,7 +7,7 @@ import "./globals.css";
 /**
  * Fonts:
  *   Inter    — body / UI. "Boring on purpose; it disappears."
- *   DM Sans  — display / headings (was Instrument Serif per docs/UI_SPEC.md,
+ *   DM Sans  — display / headings (was Instrument Serif,
  *              swapped to DM Sans on request).
  *   JetBrains Mono — page refs, tokens, citation chips.
  *

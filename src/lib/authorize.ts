@@ -8,7 +8,7 @@ import { readGuestCookie } from "@/lib/guest";
  *
  * Every route that touches a document resolves its caller through this one
  * function — not a copy-pasted ownership check in eight files. One place to
- * get right, one place to review. See docs/SECURITY.md § 1.
+ * get right, one place to review.
  *
  * Day 1: the owner branch. Day 3 adds the share-token branch for guests.
  * The Viewer union and the share lookup are written now so that extending it
@@ -33,7 +33,7 @@ export type Viewer =
  *
  * Returns null when the caller has no claim on the document — callers MUST
  * translate null into a 404, never a 403. A 403 confirms the document exists,
- * which is information the requester has not earned (docs/API_SPEC.md).
+ * which is information the requester has not earned.
  */
 export async function authorizeDocument(
   documentId: string,

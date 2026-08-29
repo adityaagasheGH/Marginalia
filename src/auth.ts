@@ -29,7 +29,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
        * Every rejection path returns null with no distinguishing detail: an
        * unknown email and a wrong password are indistinguishable to the
        * caller. A different response for a known-but-wrong email would be an
-       * account-enumeration oracle (docs/SECURITY.md § 2).
+       * account-enumeration oracle.
        *
        * We also always run bcrypt.compare, even when no user was found (using
        * a dummy hash), so response time does not reveal whether the email

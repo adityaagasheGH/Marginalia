@@ -211,7 +211,6 @@ ALTER TABLE "chat_messages" ADD CONSTRAINT "chat_messages_sessionId_fkey" FOREIG
 -- ═════════════════════════════════════════════════════════════════════
 -- HAND-WRITTEN ADDITIONS
 -- Prisma cannot express any of the below, so they are appended by hand.
--- See docs/DATA_MODEL.md § "Migration additions".
 --
 -- NOTE: Prisma maps TABLE names to snake_case (@@map) but leaves COLUMN
 -- names in camelCase, so columns must be double-quoted: "userId", not

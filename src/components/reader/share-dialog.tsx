@@ -15,13 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 
 /**
- * Share button + dialog. Owner only.
- *
- * Clicking Share does the whole job in one action: it reuses an existing
- * active link if there is one, mints a new one otherwise, and copies it to
- * the clipboard. Minting a fresh token on every click would leave a pile of
- * live links the owner has to revoke individually, which is worse for both
- * usability and security.
+ * Share button + dialog, owner only. Reuses an existing active link rather
+ * than minting a new token per click.
  */
 
 type Share = {
@@ -38,11 +33,7 @@ export function ShareDialog({ documentId }: { documentId: string }) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  /**
-   * The clipboard API is unavailable on insecure origins and can be denied by
-   * permission, so a failure has to be handled rather than assumed away. The
-   * link is on screen and selectable either way.
-   */
+  /** Clipboard access can be denied; the link stays selectable either way. */
   const copy = useCallback(async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);

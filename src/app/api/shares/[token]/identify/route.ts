@@ -10,16 +10,8 @@ import {
 } from "@/lib/guest";
 
 /**
- * POST /api/shares/[token]/identify — a guest gives a display name.
- *
- * Called once, when a guest posts their first comment. It mints a random
- * guestKey for this browser and stores { guestKey, name } in a signed,
- * httpOnly cookie scoped to this share.
- *
- * The key never leaves the server unsigned and is never readable by page
- * JavaScript, so a guest cannot claim another guest's identity by editing
- * localStorage or a visible cookie — which is what makes "delete your own
- * comment" meaningful for people without accounts.
+ * A guest gives a display name. Mints a per-browser key and stores it in a
+ * signed httpOnly cookie scoped to this share.
  */
 export async function POST(
   request: Request,
@@ -65,8 +57,7 @@ export async function POST(
     );
   }
 
-  // Reuse the existing key if this browser has already identified, so a name
-  // change does not orphan the comments they have already posted.
+  // Reuse an existing key so renaming does not orphan earlier comments.
   const cookieName = guestCookieName(share.id);
   const existing = parseGuest(
     request.headers

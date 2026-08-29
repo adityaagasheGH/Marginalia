@@ -85,14 +85,9 @@ export function DocumentCard({
   }
 
   return (
-    // The dialog is a SIBLING of the Link, not a child. Radix portals it to
-    // document.body, but React synthetic events propagate through the
-    // component tree rather than the DOM tree — nested inside the Link, every
-    // click within the dialog would also navigate to the reader.
+    // The dialog is a sibling of the Link, not a child: Radix portals it to
+    // document.body, but React events still bubble through the component tree.
     <>
-    {/* The whole card opens the reader (docs/UI_SPEC.md dashboard flow). The
-        reader page itself handles PROCESSING/FAILED/NO_TEXT states, so it's
-        safe to link there regardless of status. */}
     <Link href={`/documents/${doc.id}`} className="group block h-full">
       <Card className="flex h-full flex-col gap-3 p-5 transition-colors hover:border-ink-muted">
         <div className="flex items-start gap-3">
@@ -109,8 +104,7 @@ export function DocumentCard({
           <button
             type="button"
             onClick={(e) => {
-              // The card is wrapped in a Link; without these the click would
-              // navigate to the reader instead of opening the dialog.
+              // The card is a Link; without these the click would navigate.
               e.preventDefault();
               e.stopPropagation();
               setConfirmOpen(true);
@@ -155,9 +149,7 @@ export function DocumentCard({
           permanently removed. This can&apos;t be undone.
         </>
       }
-      // Deleting a document cascades in the database, so spelling out what
-      // else disappears is the difference between an informed confirmation
-      // and a reflexive one.
+      // Deleting cascades, so spell out what else goes.
       detail={
         <ul className="space-y-1 text-xs text-ink-muted">
           <li>· Its AI summary and search index</li>

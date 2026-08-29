@@ -41,14 +41,8 @@ type DocumentMeta = {
 };
 
 /**
- * The reader: PDF centred, a tabbed sidebar (Summary / Chat / Comments) to
- * its right.
- *
- * Serves two audiences from one component. The owner reaches it at
- * /documents/[id] with a session cookie; a guest reaches it at
- * /shared/[token] with no account at all, and every request it makes carries
- * `?token=` instead. Keeping one component means the two views cannot drift
- * apart — a fix to the reader fixes it for both.
+ * The reader: PDF centred, tabbed sidebar to its right. Serves both the owner
+ * (session cookie) and guests on a share link (`?token=`).
  */
 export function ReaderClient({
   documentId,
@@ -121,8 +115,6 @@ export function ReaderClient({
   return (
     <main className="flex h-dvh flex-col bg-paper">
       <header className="flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
-        {/* A guest has no dashboard to go back to, so the control is omitted
-            rather than shown and broken. */}
         {!isGuest && (
           <Button
             variant="ghost"
@@ -136,8 +128,6 @@ export function ReaderClient({
         <h1 className="min-w-0 flex-1 truncate font-medium text-ink">
           {doc.filename}
         </h1>
-        {/* Sharing is owner-only: a guest holding a link must not be able to
-            mint more links that would survive revoking the original. */}
         {!isGuest && <ShareDialog documentId={doc.id} />}
       </header>
 

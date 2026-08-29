@@ -4,7 +4,7 @@ import { extractText, getDocumentProxy } from "unpdf";
  * Extract text from a PDF, one entry per page.
  *
  * unpdf is pdf.js compiled for serverless — no native binaries, works on
- * Vercel's runtime (BLUEPRINT.md § 2). We keep text per-page because page
+ * Vercel's runtime. We keep text per-page because page
  * numbers are what make citations possible later ("p. 12").
  */
 

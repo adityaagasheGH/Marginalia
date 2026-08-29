@@ -14,7 +14,7 @@ import { loginSchema } from "@/lib/validation";
  * Login form. On any failure it shows a single generic message — "Invalid
  * email or password" — regardless of whether the email exists or the password
  * was wrong. A more specific message would tell an attacker which emails have
- * accounts (docs/SECURITY.md § 2).
+ * accounts.
  */
 export function LoginForm() {
   const router = useRouter();

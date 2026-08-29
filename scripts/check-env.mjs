@@ -46,8 +46,6 @@ const REQUIRED = [
   "AUTH_SECRET",
   "GOOGLE_GENERATIVE_AI_API_KEY",
   "BLOB_READ_WRITE_TOKEN",
-  "NEXTAUTH_URL",
-  "NEXT_PUBLIC_APP_URL",
 ];
 
 console.log("\n  VAR                            STATUS       SHAPE");

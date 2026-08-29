@@ -14,7 +14,7 @@ import { processDocument } from "@/lib/documents/process";
  */
 export const maxDuration = 60;
 
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB (docs/API_SPEC.md)
+const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
 const PDF_MAGIC = "%PDF-"; // every real PDF begins with these five bytes
 
 // ── GET /api/documents ──────────────────────────────────────────────────
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No file provided." }, { status: 400 });
   }
 
-  // Validation, in order (docs/API_SPEC.md) — all of it, not just the first.
+  // Validation, in order — all of it, not just the first.
   // 1) client-declared MIME type
   if (file.type !== "application/pdf") {
     return NextResponse.json({ error: "File must be a PDF." }, { status: 400 });

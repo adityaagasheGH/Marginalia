@@ -8,7 +8,7 @@ import { deletePdf } from "@/lib/blob";
  *
  * Resolves the caller through authorizeDocument (the single chokepoint) and
  * returns 404 — never 403 — when they have no claim on the document, so an
- * unauthorized request can't even confirm the id exists (docs/API_SPEC.md).
+ * unauthorized request can't even confirm the id exists.
  */
 export async function GET(
   request: Request,

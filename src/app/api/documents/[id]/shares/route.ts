@@ -5,20 +5,11 @@ import { authorizeDocument, isOwner } from "@/lib/authorize";
 import { createShareSchema } from "@/lib/validation";
 
 /**
- * POST /api/documents/[id]/shares — mint a share link.
- * GET  /api/documents/[id]/shares — list the active ones.
- *
- * Owner only. A guest holding a valid link must not be able to mint further
- * links, or one leaked link would silently become permanent access that
- * survives revoking the original.
+ * Mint and list share links. Owner only — a guest minting further links would
+ * survive revoking the original.
  */
 
-/**
- * 32 random bytes, base64url. That is 256 bits of entropy — the link itself
- * is the credential, so it has to be unguessable by brute force. base64url
- * is chosen over hex because it is URL-safe with no escaping and shorter for
- * the same entropy.
- */
+/** 256 bits. The link is the credential, so it must be unguessable. */
 function newShareToken(): string {
   return randomBytes(32).toString("base64url");
 }
@@ -35,7 +26,6 @@ export async function POST(
   const { id } = await params;
 
   const viewer = await authorizeDocument(id, request);
-  // 404 rather than 403 throughout: a 403 would confirm the document exists.
   if (!viewer || !isOwner(viewer)) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }

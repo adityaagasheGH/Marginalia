@@ -8,29 +8,18 @@ import { hybridSearch, formatContext } from "@/lib/ai/retrieve";
 import { CHAT_SYSTEM } from "@/lib/ai/prompts";
 
 /**
- * POST /api/documents/[id]/chat — ask a question about one PDF.
- * GET  /api/documents/[id]/chat — load this document's conversation.
+ * POST — ask a question about one PDF. GET — load the conversation.
  *
- * An "API route" is a file that runs on the server and answers HTTP requests.
- * The browser never talks to Gemini: it posts here, this code calls Gemini
- * with the server-held key, and streams the answer back. That is what keeps
- * the API key off the client, which the assignment requires explicitly.
- *
- * The RAG pipeline, in order:
- *   1. CONDENSE  follow-up + history -> standalone query   (lib/ai/condense)
- *   2. RETRIEVE  hybrid vector + keyword search -> 6 chunks (lib/ai/retrieve)
- *   3. ASSEMBLE  numbered excerpts with page ranges
- *   4. GENERATE  stream the answer, grounded in those excerpts
- *   5. PERSIST   save both messages so the conversation survives a reload
+ * condense -> retrieve -> assemble -> generate -> persist. The browser never
+ * talks to Gemini; the key stays server-side.
  */
 
-// Streaming plus two model calls can exceed the default 15s serverless limit.
 export const maxDuration = 60;
 
-/** Turns kept verbatim. The assignment asks for 3-5; 5 is the upper end. */
+/** Turns kept verbatim. */
 const HISTORY_TURNS = 5;
 
-/** Longest question we accept — a guard against pathological input. */
+/** Guard against pathological input. */
 const MAX_MESSAGE_CHARS = 2000;
 
 type Citation = { chunkId: string; pageStart: number; pageEnd: number };
@@ -41,15 +30,14 @@ export async function POST(
 ) {
   const { id } = await params;
 
-  // Same chokepoint every document route uses. null means "no claim on this
-  // document" and must become a 404 — a 403 would confirm the document
-  // exists, which the caller has not earned (docs/SECURITY.md).
+  // null means no claim on this document, and must become 404 — a 403 would
+  // confirm the document exists.
   const viewer = await authorizeDocument(id, request);
   if (!viewer) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
-  // Guest chat needs a per-browser session key that Day 3 introduces along
-  // with sharing. Until then only the owner can chat.
+  // Guest chat is disabled: it is reachable without an account and there is
+  // no rate limiting.
   if (!isOwner(viewer)) {
     return NextResponse.json(
       { error: "Chat is not available on shared links yet." },
@@ -98,8 +86,7 @@ export async function POST(
     );
   }
 
-  // One conversation per (document, user). upsert avoids a race where two
-  // quick messages would each try to create the session row.
+  // One conversation per (document, user); upsert avoids a create race.
   const session = await db.chatSession.upsert({
     where: { documentId_userId: { documentId: id, userId: viewer.userId } },
     create: { documentId: id, userId: viewer.userId },
@@ -115,12 +102,9 @@ export async function POST(
   });
   const history: Turn[] = recent.reverse();
 
-  // ── 1. Condense ───────────────────────────────────────────────────────
-  // "And what about renewal?" is meaningless to a search engine. Rewritten
-  // against the history it becomes a query that actually retrieves.
+  // Rewrite the follow-up into something a search engine can use.
   const searchQuery = await condenseQuery(message, history);
 
-  // ── 2. Retrieve ───────────────────────────────────────────────────────
   const hits = await hybridSearch(id, searchQuery);
   const context = formatContext(hits);
   const citations: Citation[] = hits.map((h) => ({
@@ -129,14 +113,11 @@ export async function POST(
     pageEnd: h.pageEnd,
   }));
 
-  // Persist the question now, not after the answer. If generation fails the
-  // user still sees what they asked rather than a conversation that silently
-  // dropped their message.
+  // Persist the question before generating, so a failure does not lose it.
   await db.chatMessage.create({
     data: { sessionId: session.id, role: "USER", content: message },
   });
 
-  // ── 3+4. Assemble and generate ────────────────────────────────────────
   const result = streamText({
     model: flash,
     system: CHAT_SYSTEM(document.filename, document.summary, context),
@@ -146,15 +127,12 @@ export async function POST(
         role: t.role === "USER" ? ("user" as const) : ("assistant" as const),
         content: t.content,
       })),
-    // Low: this is extraction from supplied text, not composition. Higher
-    // values invite the model to embellish, which here means hallucinate.
+    // Extraction, not composition.
     temperature: 0.2,
     maxOutputTokens: 2048,
     providerOptions: { google: { thinkingConfig: { thinkingLevel: "low" } } },
 
-    // ── 5. Persist ──────────────────────────────────────────────────────
-    // Runs after the last token is streamed. The user already has the full
-    // answer on screen by then; this is purely so a reload restores it.
+    // Runs after the last token; purely so a reload restores the thread.
     onFinish: async ({ text }) => {
       try {
         await db.chatMessage.create({
@@ -170,16 +148,13 @@ export async function POST(
           data: { updatedAt: new Date() },
         });
       } catch (error) {
-        // The user has their answer; losing the transcript row must not
-        // surface as a broken response.
         console.error(`[chat ${id}] persist failed`, error);
       }
     },
   });
 
-  // Citations travel in a header rather than the body because retrieval
-  // completes before the first token exists — so they are already known, and
-  // this keeps the body a plain text stream the client can render directly.
+  // Citations go in a header: retrieval completes before the first token,
+  // so they are already known and the body stays a plain text stream.
   return result.toTextStreamResponse({
     headers: {
       "X-Citations": JSON.stringify(citations),

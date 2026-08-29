@@ -1,21 +1,11 @@
 import type { PageText } from "@/lib/pdf/extract";
 
 /**
- * Split a document's per-page text into overlapping, page-tagged chunks.
+ * Split per-page text into overlapping, page-tagged chunks.
  *
- * A "chunk" is one retrievable unit. Retrieval can only ever return whole
- * chunks, so chunk boundaries decide what the chat model is able to see.
- * Three properties matter (docs/AI_DESIGN.md § 1):
- *
- *   1. Size       — ~800 tokens. Small enough that six fit in a prompt
- *                   cheaply, large enough that a clause or section usually
- *                   survives intact.
- *   2. Overlap    — ~150 tokens repeated across each seam. Without it a
- *                   definition split by a boundary becomes unfindable,
- *                   because neither neighbour holds the whole thought.
- *   3. Provenance — every chunk records its page range. This is what makes
- *                   "(p. 12)" citations possible; a page number cannot be
- *                   recovered once the text has been merged.
+ * Overlap keeps a definition split across a boundary findable. Page ranges
+ * are what make "(p. 12)" citations possible — they cannot be recovered
+ * once text is merged.
  */
 
 export const CHUNK_CONFIG = {
@@ -31,34 +21,24 @@ export type Chunk = {
   tokenCount: number;
 };
 
-/**
- * Tokens are what the embedding API actually limits, but tokenizing properly
- * means shipping the model's vocabulary. For sizing decisions the standard
- * approximation — ~4 characters per token of English prose — is close enough,
- * and it errs high on purpose so we land under the input limit, not over it.
- */
+/** ~4 chars per token. Errs high so we land under the embedding input limit. */
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-/** A paragraph- or sentence-sized piece of text, still tied to its page. */
+/** A paragraph- or sentence-sized piece, still tied to its page. */
 type Unit = { text: string; page: number; tokens: number; isHeading: boolean };
 
 /**
- * Lines repeating on most pages are running headers/footers ("CONFIDENTIAL",
- * a page number, the document title). They carry no information, they push
- * the same vocabulary into every embedding, and they waste each chunk's token
- * budget. Drop any line appearing on more than 60% of pages.
- *
- * Guarded to 4+ page documents: on a 2-page document "appears on >60% of
- * pages" is meaningless and would delete real content.
+ * Drop running headers/footers — any line on >60% of pages. They push the
+ * same vocabulary into every embedding. Guarded to 4+ page documents.
  */
 function stripBoilerplate(pages: PageText[]): PageText[] {
   if (pages.length < 4) return pages;
 
   const pagesContainingLine = new Map<string, number>();
   for (const page of pages) {
-    // A Set, so a line repeated twice on one page still counts once.
+
     const seen = new Set(
       page.text
         .split("\n")
@@ -89,12 +69,7 @@ function stripBoilerplate(pages: PageText[]): PageText[] {
   }));
 }
 
-/**
- * Headings are the best available split point: the text beneath one belongs
- * together, and a chunk starting at a heading reads as a coherent passage.
- * Matches numbered clauses ("4.2", "ARTICLE III", "Section 7") and short
- * all-caps lines, which is how most contracts and reports mark sections.
- */
+/** Numbered clauses ("4.2", "ARTICLE III") and short all-caps lines. */
 function isHeadingLine(line: string): boolean {
   const t = line.trim();
   if (t.length === 0 || t.length > 100) return false;
@@ -111,13 +86,7 @@ function isHeadingLine(line: string): boolean {
   );
 }
 
-/**
- * Break one page into units no larger than targetTokens, cutting at the
- * strongest boundary available: paragraph, then sentence, then a hard
- * character cut. The hard cut exists only for pathological input (a table
- * dumped as one unbroken line) and is the sole case where we knowingly
- * sever a sentence.
- */
+/** Split a page into units, cutting at paragraph, then sentence, then chars. */
 function pageToUnits(page: PageText): Unit[] {
   const max = CHUNK_CONFIG.targetTokens;
   const units: Unit[] = [];
@@ -141,8 +110,7 @@ function pageToUnits(page: PageText): Unit[] {
       continue;
     }
 
-    // Oversized paragraph: fall back to sentences. The lookbehind keeps each
-    // terminator attached to the sentence it ends.
+    // Lookbehind keeps the terminator attached to its sentence.
     let buffer = "";
     for (const sentence of paragraph.split(/(?<=[.!?])\s+/)) {
       if (estimateTokens(sentence) > max) {
@@ -169,11 +137,8 @@ function pageToUnits(page: PageText): Unit[] {
 }
 
 /**
- * Assemble units into chunks, carrying an overlap tail across each boundary.
- *
- * A chunk closes when the next unit would push it past the target, or when a
- * heading arrives and the chunk is already substantial — splitting slightly
- * early at a real section break beats splitting on size mid-section.
+ * Assemble units into chunks, carrying an overlap tail across each seam.
+ * Closes early at a heading rather than splitting mid-section on size.
  */
 export function chunkPages(pages: PageText[]): Chunk[] {
   const units = stripBoilerplate(pages).flatMap(pageToUnits);
@@ -213,8 +178,7 @@ export function chunkPages(pages: PageText[]): Chunk[] {
 
     if (current.length > 0 && (wouldExceed || headingBreak)) {
       flush();
-      // A heading opens a genuinely new section, so carrying the previous
-      // section's tail into it would blur the boundary we just honoured.
+      // A heading opens a new section; carrying a tail in would blur it.
       current = unit.isHeading ? [] : overlapTail();
       currentTokens = current.reduce((n, u) => n + u.tokens, 0);
     }
@@ -227,11 +191,7 @@ export function chunkPages(pages: PageText[]): Chunk[] {
   return mergeRunts(chunks);
 }
 
-/**
- * A tiny trailing chunk ("Signed: ______") embeds to a vector that means
- * almost nothing and can outrank real content by accident. Fold any
- * undersized chunk into its predecessor.
- */
+/** Tiny chunks embed to near-meaningless vectors; fold them into the previous. */
 function mergeRunts(chunks: Chunk[]): Chunk[] {
   const out: Chunk[] = [];
   for (const chunk of chunks) {

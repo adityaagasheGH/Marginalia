@@ -64,7 +64,7 @@
      dark scrollbars against a near-white page. */
   color-scheme: light;
 
-  /* ── UI_SPEC.md tokens (docs/UI_SPEC.md § Tokens) ───────────────── */
+  /* ── UI_SPEC.md tokens ───────────────── */
   /* Warm beige rather than white. This is a reading environment, and a pure
      #FFFFFF surface under a full-page layout is genuinely glaring — the same
      reason the dark palette uses a warm near-black instead of pure #000.

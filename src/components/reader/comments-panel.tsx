@@ -9,13 +9,9 @@ import { CommentComposer } from "@/components/reader/comment-composer";
 import { renderCommentBody } from "@/lib/comment-format";
 
 /**
- * The comments tab. Works identically for the owner and for guests who
- * arrived through a share link — the only difference is which credential
- * goes on the request, which is why every fetch here runs through `api()`.
- *
- * Threading is one level: top-level comments, each with a flat list of
- * replies. Deeper nesting reads badly in a 380px panel and the schema is
- * built for exactly this shape.
+ * Comments tab. Identical for the owner and for guests on a share link —
+ * only the credential differs, which is why every fetch goes through api().
+ * Threading is one level, matching the schema.
  */
 
 type Comment = {
@@ -35,7 +31,7 @@ type ViewerInfo = {
   name: string | null;
 };
 
-/** Others' comments only arrive if we ask; 5s is responsive without hammering. */
+/** Others' comments only arrive if we poll. */
 const POLL_MS = 5000;
 
 export function CommentsPanel({
@@ -52,14 +48,9 @@ export function CommentsPanel({
   const [nameDraft, setNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
 
-  // Held in a ref so the polling effect does not restart on every keystroke.
   const pendingRef = useRef(false);
 
-  /**
-   * Every request carries the share token when we are a guest. The server's
-   * authorizer reads it from the query string, so it must be appended to the
-   * URL rather than sent as a header.
-   */
+  /** The authorizer reads the share token from the query string. */
   const api = useCallback(
     (path: string) =>
       shareToken
@@ -78,8 +69,7 @@ export function CommentsPanel({
       setComments(data.comments ?? []);
       setViewer(data.viewer ?? null);
     } catch {
-      // A failed poll is not worth interrupting the reader over; the next
-      // tick will retry.
+      // The next tick retries.
     } finally {
       pendingRef.current = false;
       setLoaded(true);
@@ -123,7 +113,7 @@ export function CommentsPanel({
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      // 428 Precondition Required: the guest has not named themselves yet.
+      // 428: the guest has not named themselves yet.
       if (res.status === 428) {
         setViewer((v) => (v ? { ...v, name: null } : v));
       }
@@ -132,8 +122,6 @@ export function CommentsPanel({
     }
 
     const created: Comment = await res.json();
-    // Append immediately rather than waiting for the next poll, so posting
-    // feels instant.
     setComments((prev) => [...prev, created]);
     setReplyTo(null);
   };
@@ -297,8 +285,6 @@ function CommentItem({
         </span>
       </div>
 
-      {/* renderCommentBody returns React elements, never HTML — a comment
-          containing markup is displayed as text, not executed. */}
       <div className="text-sm leading-relaxed text-ink">
         {renderCommentBody(comment.body)}
       </div>

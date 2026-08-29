@@ -1,9 +1,9 @@
 /**
  * Every prompt in the app lives here, versioned and commented with the
- * reasoning. Reviewers open this file (BLUEPRINT.md § 5). Do not inline
+ * reasoning. Reviewers open this file. Do not inline
  * prompts at their call sites.
  *
- * Prompt text is taken verbatim from docs/AI_DESIGN.md.
+ * Prompt text is taken verbatim from.
  */
 
 // ── Summarization (single pass) ─────────────────────────────────────────

@@ -7,12 +7,12 @@ import { signupSchema } from "@/lib/validation";
 /**
  * POST /api/auth/signup
  *
- * Creates an account. Per docs/API_SPEC.md:
+ * Creates an account.
  *   201 { id, email }          on success
  *   400 { error }              invalid input
  *   409 { error }              email already registered
  *
- * The password hash is never echoed back. See docs/SECURITY.md § 2.
+ * The password hash is never echoed back.
  */
 export async function POST(request: Request) {
   // 1) Parse the JSON body. A malformed body throws, so guard it.
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       );
     }
     // Anything else is unexpected: log server-side, return a generic message.
-    // Never leak the raw error to the client (docs/API_SPEC.md, cross-cutting).
+    // Never leak the raw error to the client.
     console.error("[signup] unexpected error:", err);
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }

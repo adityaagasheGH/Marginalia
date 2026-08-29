@@ -6,17 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 /**
- * The chat panel: ask questions about this PDF, get grounded answers.
- *
- * Streaming is hand-rolled rather than using @ai-sdk/react's useChat. The
- * server returns a plain text stream, so reading it is a ReadableStream loop
- * and about thirty lines — which avoids a second SDK dependency and keeps
- * every piece of the request visible in one file.
- *
- * Citations arrive in the X-Citations response header, not the body: the
- * server retrieves passages *before* generating a single token, so the page
- * numbers are already known when the response starts. That lets the body
- * stay a pure text stream.
+ * Chat panel. Streaming is a plain ReadableStream loop over a text response.
+ * Citations arrive in the X-Citations header because retrieval completes
+ * before the first token exists.
  */
 
 type Citation = { chunkId: string; pageStart: number; pageEnd: number };
@@ -95,8 +87,6 @@ export function ChatPanel({
     setPending(true);
     setStreaming("");
 
-    // Show the question immediately. A temporary id is fine — this row is
-    // replaced by the server's copy on the next load.
     setMessages((prev) => [
       ...prev,
       { id: `local-${Date.now()}`, role: "USER", content: question },
@@ -123,9 +113,7 @@ export function ChatPanel({
         res.headers.get("X-Citations") ?? "[]",
       );
 
-      // Read the stream chunk by chunk. `stream: true` tells the decoder a
-      // multi-byte character may be split across chunk boundaries, so it
-      // buffers the tail instead of emitting a broken character.
+      // stream: true buffers multi-byte chars split across chunk boundaries.
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let answer = "";
@@ -149,7 +137,6 @@ export function ChatPanel({
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setError((err as Error).message);
-      // Put the question back so it is not lost to a failed request.
       setInput(question);
       setMessages((prev) => prev.slice(0, -1));
     } finally {
@@ -214,7 +201,6 @@ export function ChatPanel({
           ),
         )}
 
-        {/* The answer as it arrives. Becomes a real message once complete. */}
         {streaming !== null && (
           <div className="space-y-1.5">
             {streaming.length === 0 ? (

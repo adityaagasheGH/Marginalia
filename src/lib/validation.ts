@@ -8,7 +8,7 @@ import { MIN_PASSWORD_LENGTH } from "@/lib/password";
  *
  * TypeScript types are erased at build time and cannot guard a route against
  * arbitrary request bodies — Zod checks the actual data at runtime. Every
- * route validates its input before doing anything else (docs/API_SPEC.md).
+ * route validates its input before doing anything else.
  */
 
 export const signupSchema = z.object({

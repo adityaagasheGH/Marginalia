@@ -8,7 +8,7 @@ import { authorizeDocument } from "@/lib/authorize";
  *
  * This route is the entire reason "accessible only to the uploader and
  * explicitly invited users" is actually true rather than aspirational
- * (docs/API_SPEC.md). The blob is private; its URL is fetched server-side
+ *. The blob is private; its URL is fetched server-side
  * and never handed to the browser — the client only ever sees this route.
  */
 export async function GET(
@@ -40,7 +40,7 @@ export async function GET(
       // inline: renders in the browser/viewer rather than forcing a download.
       "Content-Disposition": contentDisposition(document.filename),
       // The PDF renders inside react-pdf's canvas, never a raw <embed>, so
-      // there is no PDF-embedded-JS execution surface (docs/SECURITY.md § 5).
+      // there is no PDF-embedded-JS execution surface.
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "private, no-store",
     },

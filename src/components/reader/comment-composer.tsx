@@ -6,13 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 /**
- * The comment box: a textarea plus three formatting buttons.
- *
- * Formatting is stored as markdown text, not rich HTML. The toolbar only
- * wraps the selection in markers — so what the user types is exactly what is
- * stored, and rendering happens separately through lib/comment-format.tsx.
- * That keeps a comment a plain string end to end, which is why no untrusted
- * HTML ever exists to sanitize.
+ * Comment box with a markdown toolbar. Formatting is stored as plain text,
+ * never HTML — rendering happens in lib/comment-format.tsx.
  */
 export function CommentComposer({
   onSubmit,
@@ -33,12 +28,7 @@ export function CommentComposer({
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
 
-  /**
-   * Wrap the current selection in a marker pair, or insert an empty pair and
-   * place the caret between them when nothing is selected. Reading
-   * selectionStart/End is what makes the buttons behave like a real editor
-   * rather than appending characters at the end.
-   */
+  /** Wrap the selection in markers, or insert an empty pair at the caret. */
   const wrap = (marker: string) => {
     const el = ref.current;
     if (!el) return;
@@ -47,7 +37,6 @@ export function CommentComposer({
     const next =
       value.slice(0, start) + marker + selected + marker + value.slice(end);
     setValue(next);
-    // Restore focus and put the caret inside the markers.
     requestAnimationFrame(() => {
       el.focus();
       const caret = start + marker.length + selected.length;
@@ -60,8 +49,6 @@ export function CommentComposer({
     const el = ref.current;
     if (!el) return;
     const { selectionStart: start, selectionEnd: end } = el;
-    // Expand the selection to whole lines so a partial selection still
-    // bullets the line it sits on.
     const lineStart = value.lastIndexOf("\n", start - 1) + 1;
     const lineEndRaw = value.indexOf("\n", end);
     const lineEnd = lineEndRaw === -1 ? value.length : lineEndRaw;
@@ -99,8 +86,7 @@ export function CommentComposer({
         autoFocus={autoFocus}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
-          // Ctrl/Cmd+Enter sends. Plain Enter inserts a newline, because
-          // comments are often multi-line and bullet lists need it.
+          // Ctrl/Cmd+Enter sends; plain Enter newlines, for bullet lists.
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
             void send();
@@ -160,8 +146,6 @@ function ToolbarButton({
   return (
     <button
       type="button"
-      // type="button" matters: inside a form, a bare <button> defaults to
-      // type="submit" and would post the page instead of formatting text.
       onClick={onClick}
       title={label}
       aria-label={label}
