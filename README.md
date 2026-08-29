@@ -18,8 +18,6 @@ Upload a PDF, get an AI summary, ask it questions, and share it for comments —
 | **Comments** | Threaded one level, with **bold** / *italic* / bullets |
 | **Theme** | Light and dark, remembered per browser |
 
-**Not built:** search, rate limiting, password reset, email notifications, OCR, guest chat.
-
 ---
 
 ## Stack
@@ -163,15 +161,3 @@ Where the PDF lives: the file goes to **Vercel Blob** (private). Postgres stores
 - **Uploads are magic-byte checked** (`%PDF-`), not trusted by MIME type.
 - **Guest cookies are HMAC-signed**, `httpOnly`, and compared in constant time.
 - **Prompt injection** is bounded: document text is delimited and labelled untrusted, and the model has no tools — the worst case is a bad answer, not an action.
-
----
-
-## Known limitations
-
-- **No search.** The dashboard lists documents but cannot search them.
-- **No rate limiting.** This is why guest chat is disabled on share links — the endpoint costs money and is otherwise reachable without an account.
-- **No OCR.** Scanned PDFs are detected and reported, not processed.
-- **Retrieval returns 6 chunks.** Whole-document sweeps ("list every deadline") may be incomplete, and positional questions ("what's on page 25") are unreliable — neither engine indexes page numbers.
-- **Summaries truncate** past ~125k tokens. Chat is unaffected.
-- **History is dropped** beyond 5 turns, not summarized.
-- **Comments poll** every 5s rather than using websockets.
