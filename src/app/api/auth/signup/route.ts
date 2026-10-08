@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { hashPassword, checkPasswordStrength } from "@/lib/password";
+import { hashPassword } from "@/lib/password";
 import { signupSchema } from "@/lib/validation";
 
 /**
@@ -24,7 +24,8 @@ export async function POST(request: Request) {
   }
 
   // 2) Validate shape and types at runtime. `safeParse` never throws; it
-  //    returns success/failure so we can craft our own response.
+  //    returns success/failure so we can craft our own response. The schema
+  //    also enforces the password-strength policy.
   const parsed = signupSchema.safeParse(json);
   if (!parsed.success) {
     const first = parsed.error.issues[0];
@@ -32,17 +33,11 @@ export async function POST(request: Request) {
   }
   const { name, email, password } = parsed.data;
 
-  // 3) Strength rules that Zod's length check does not cover (common passwords).
-  const weak = checkPasswordStrength(password);
-  if (weak) {
-    return NextResponse.json({ error: weak }, { status: 400 });
-  }
-
-  // 4) Hash before we ever touch the database — the plaintext must not live
+  // 3) Hash before we ever touch the database — the plaintext must not live
   //    a moment longer than necessary, and never reaches storage or logs.
   const passwordHash = await hashPassword(password);
 
-  // 5) Insert. We rely on the UNIQUE constraint on email rather than a
+  // 4) Insert. We rely on the UNIQUE constraint on email rather than a
   //    separate "does this email exist?" query: checking then inserting has a
   //    race condition (two signups in the same instant both pass the check).
   //    Catching the unique-violation is atomic and correct.

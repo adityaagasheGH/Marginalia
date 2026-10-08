@@ -1,4 +1,4 @@
-import { extractText, getDocumentProxy } from "unpdf";
+import { extractText, getDocumentProxy, getResolvedPDFJS } from "unpdf";
 
 /**
  * Extract text from a PDF, one entry per page.
@@ -11,6 +11,10 @@ import { extractText, getDocumentProxy } from "unpdf";
 export type PageText = {
   pageNumber: number; // 1-based
   text: string;
+  /** True if the page paints raster images (scan, photo, screenshot). */
+  hasImages?: boolean;
+  /** True if the text came from OCR rather than the PDF's text layer. */
+  ocr?: boolean;
 };
 
 export type ExtractResult = {
@@ -21,13 +25,17 @@ export type ExtractResult = {
 };
 
 export async function extractPdfText(bytes: Uint8Array): Promise<ExtractResult> {
-  // getDocumentProxy parses the PDF once; extractText then reads it.
-  const pdf = await getDocumentProxy(bytes);
+  // pdf.js takes ownership of the buffer it is given, so hand it a copy; the
+  // OCR step needs the original bytes afterwards.
+  const pdf = await getDocumentProxy(bytes.slice());
   const { totalPages, text } = await extractText(pdf, { mergePages: false });
+
+  const imagePages = await detectImagePages(pdf, totalPages);
 
   const pages: PageText[] = text.map((pageText, i) => ({
     pageNumber: i + 1,
     text: normalize(pageText),
+    hasImages: imagePages.has(i + 1),
   }));
 
   return {
@@ -48,4 +56,29 @@ function normalize(text: string): string {
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/** Which pages paint raster images? Failures degrade to "unknown" (no images). */
+async function detectImagePages(
+  pdf: Awaited<ReturnType<typeof getDocumentProxy>>,
+  totalPages: number,
+): Promise<Set<number>> {
+  const found = new Set<number>();
+  try {
+    const { OPS } = await getResolvedPDFJS();
+    const imageOps = new Set<number>([
+      OPS.paintImageXObject,
+      OPS.paintInlineImageXObject,
+      OPS.paintImageMaskXObject,
+    ]);
+    for (let n = 1; n <= totalPages; n++) {
+      const page = await pdf.getPage(n);
+      const { fnArray } = await page.getOperatorList();
+      if (fnArray.some((fn: number) => imageOps.has(fn))) found.add(n);
+      page.cleanup();
+    }
+  } catch (err) {
+    console.error("[extract] image detection failed:", err);
+  }
+  return found;
 }

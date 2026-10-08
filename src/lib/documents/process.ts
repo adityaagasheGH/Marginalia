@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import { extractPdfText } from "@/lib/pdf/extract";
+import { extractPdfText, type PageText } from "@/lib/pdf/extract";
+import { ocrPages } from "@/lib/pdf/ocr";
 import { chunkPages } from "@/lib/pdf/chunk";
 import { summarizeDocument } from "@/lib/ai/summarize";
 import { embedChunkTexts, replaceChunks } from "@/lib/ai/embed";
@@ -8,8 +9,9 @@ import { embedChunkTexts, replaceChunks } from "@/lib/ai/embed";
  * The ingest pipeline. Runs in the background AFTER the upload route has
  * already returned 201, so the user is never blocked waiting for the LLM.
  *
- *   extract text (unpdf)
- *     -> if < 200 chars: NO_TEXT (scanned/image-only PDF — don't hallucinate)
+ *   extract text layer (unpdf)
+ *     -> OCR pages with no/thin text layer or embedded images (Gemini vision)
+ *     -> if still < 200 chars: NO_TEXT (scanned/image-only PDF — don't hallucinate)
  *     -> else index for chat (chunk + embed + store), summarize, mark READY
  *   any error -> FAILED with a real message
  *
@@ -30,12 +32,27 @@ import { embedChunkTexts, replaceChunks } from "@/lib/ai/embed";
 // Summarizing near-empty text just invents a document, so we refuse.
 const MIN_TEXT_CHARS = 200;
 
+// A page with fewer native characters than this is treated as image-only.
+const BLANK_PAGE_CHARS = 80;
+// A page that paints images and has less native text than this may hold a
+// screenshot/scan alongside real text, so it is OCR'd too.
+const IMAGE_PAGE_CHARS = 1500;
+const MAX_OCR_PAGES = 60;
+// Whole job must fit in maxDuration (60s); leave room for embed + summarize.
+const OCR_BUDGET_MS = 30_000;
+
 export async function processDocument(
   documentId: string,
   bytes: Uint8Array,
 ): Promise<void> {
   try {
-    const { pageCount, pages, fullText } = await extractPdfText(bytes);
+    const extracted = await extractPdfText(bytes);
+    const { pageCount } = extracted;
+    const { pages, ocrPageCount, ocrFailed } = await applyOcr(bytes, extracted.pages);
+    const fullText = pages.map((p) => p.text).join("\n\n").trim();
+    if (ocrPageCount > 0) {
+      console.log(`[process ${documentId}] OCR supplied text for ${ocrPageCount} page(s)`);
+    }
 
     // Scanned-PDF guard.
     if (fullText.trim().length < MIN_TEXT_CHARS) {
@@ -46,7 +63,9 @@ export async function processDocument(
           pageCount,
           extractedText: fullText,
           errorMessage:
-            "This PDF appears to be scanned images. No extractable text was found, so summary and chat aren't available.",
+            ocrFailed > 0
+              ? "This PDF looks like scanned images and text recognition didn't complete. Please try uploading it again."
+              : "No readable text was found in this PDF, even after text recognition, so summary and chat aren't available.",
         },
       });
       return;
@@ -74,6 +93,10 @@ export async function processDocument(
         pageCount,
         extractedText: fullText,
         summary,
+        errorMessage:
+          ocrFailed > 0
+            ? `Text recognition could not read ${ocrFailed} page(s); answers may miss them.`
+            : null,
       },
     });
   } catch (err) {
@@ -112,4 +135,59 @@ export async function indexDocument(
   const embeddings = await embedChunkTexts(chunks.map((c) => c.content));
   await replaceChunks(documentId, chunks, embeddings);
   return chunks.length;
+}
+
+/**
+ * OCR the pages whose text layer is missing or likely incomplete, and merge
+ * the result back. OCR output replaces native text only when it is clearly
+ * fuller (a screenshot inside a text page adds text; a clean text page that
+ * merely has a logo keeps its exact native text).
+ */
+async function applyOcr(
+  bytes: Uint8Array,
+  pages: PageText[],
+): Promise<{ pages: PageText[]; ocrPageCount: number; ocrFailed: number }> {
+  const candidates = pages
+    .filter(
+      (p) =>
+        p.text.length < BLANK_PAGE_CHARS ||
+        (p.hasImages && p.text.length < IMAGE_PAGE_CHARS),
+    )
+    .sort((a, b) => a.text.length - b.text.length)
+    .slice(0, MAX_OCR_PAGES)
+    .map((p) => p.pageNumber)
+    .sort((a, b) => a - b);
+
+  if (candidates.length === 0) return { pages, ocrPageCount: 0, ocrFailed: 0 };
+
+  let result;
+  try {
+    result = await ocrPages(bytes, candidates, Date.now() + OCR_BUDGET_MS);
+  } catch (err) {
+    console.error("[ocr] unavailable, using text layer only:", err);
+    return { pages, ocrPageCount: 0, ocrFailed: candidates.length };
+  }
+
+  let used = 0;
+  const merged = pages.map((p) => {
+    const ocr = result.texts
+      .get(p.pageNumber)
+      ?.replace(/[ \t]+/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    if (!ocr) return p;
+    const blank = p.text.length < BLANK_PAGE_CHARS;
+    if (blank || ocr.length > p.text.length * 1.2 + 20) {
+      used++;
+      return { ...p, text: ocr, ocr: true };
+    }
+    return p;
+  });
+
+  // Only pages that were actually blank count as a real loss when OCR failed.
+  const lost = result.failed.filter(
+    (n) => (pages[n - 1]?.text.length ?? 0) < BLANK_PAGE_CHARS,
+  ).length;
+
+  return { pages: merged, ocrPageCount: used, ocrFailed: lost };
 }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MIN_PASSWORD_LENGTH } from "@/lib/password";
+import { checkPasswordStrength } from "@/lib/password-policy";
 
 /**
  * Runtime validation schemas, shared between API routes and the forms that
@@ -15,10 +15,10 @@ export const signupSchema = z.object({
   name: z.string().trim().min(1, "Name is required.").max(100),
   // .toLowerCase() normalizes so "Ada@x.com" and "ada@x.com" are one account.
   email: z.email("Enter a valid email address.").toLowerCase(),
-  password: z
-    .string()
-    .min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`)
-    .max(200, "Password must be at most 200 characters."),
+  password: z.string().superRefine((pw, ctx) => {
+    const problem = checkPasswordStrength(pw);
+    if (problem) ctx.addIssue({ code: "custom", message: problem });
+  }),
 });
 
 export const loginSchema = z.object({
